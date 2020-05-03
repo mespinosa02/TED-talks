@@ -1,0 +1,122 @@
+---
+title: "tedtalks"
+author: "Michelle Espinosa"
+date: "4/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+
+ted<-readxl::read_excel("TED.xlsx")
+
+sheeturl="https://docs.google.com/spreadsheets/d/1Yv_9nDl4ocIZR0GXU3OZuBaXxER1blfwR_XHvklPpEM/edit?hl=en&hl=en&hl=en#gid=0"
+
+library(googlesheets)
+library(tidyverse)
+
+tedsheet <- sheeturl %>% gs_url()
+TED <- tedsheet %>% gs_read()
+```
+
+
+
+
+
+##1
+```{r}
+library(lubridate)
+
+hour(TED$duration[1])
+minute(TED$duration[1])
+second(TED$duration[1])
+
+TED <- TED %>% mutate(duration_minutes=(second(duration)+60*minute(duration)+3600*hour(duration))/60)
+
+head(TED[,c("duration", "duration_minutes")])
+
+TED_speaker_metrics <- TED%>%group_by(speaker_name)%>%
+  summarise(Number_talks=length(speaker_name),
+            Mean_talk_duration=mean(duration_minutes))
+
+TED_speaker_metrics$Mean_talk_duration<-round(TED_speaker_metrics$Mean_talk_duration,2)
+```
+
+```{r}
+library(DT)
+datatable(TED_speaker_metrics)
+```
+
+```{r}
+TED_speaker_metrics%>%ggplot(.,aes(Number_talks))+geom_histogram()
+```
+
+```{r}
+TED_speaker_metrics %>% filter(Number_talks>3) %>% ggplot(.,aes(reorder(speaker_name, Mean_talk_duration), Mean_talk_duration))+geom_bar(stat = "identity")+coord_flip()
+```
+
+```{r}
+TED_speaker_metrics%>%filter(Number_talks>3)%>%ggplot(.,aes(reorder(speaker_name, Mean_talk_duration), Mean_talk_duration))+geom_bar(stat = "identity")+coord_flip()+labs(x="","Mean Talk Duration")+theme_bw()
+```
+
+```{r}
+TED_speaker_metrics%>%filter(Number_talks>3)%>%ggplot(.,aes(reorder(speaker_name, Mean_talk_duration), Mean_talk_duration, fill=Number_talks))+geom_bar(stat = "identity")+coord_flip()+labs(x="","Mean Talk Duration")+theme_bw()
+```
+
+```{r}
+TED_speaker_metrics%>%filter(Number_talks>3)%>%ggplot(.,aes(reorder(speaker_name, Mean_talk_duration), Mean_talk_duration, fill=as.factor(Number_talks)))+geom_bar(stat = "identity")+coord_flip()+labs(x="","Mean Talk Duration")+theme_bw()+scale_fill_discrete("Number of Talks")
+```
+
+```{r}
+library(plotly)
+
+ggobject=TED_speaker_metrics%>%filter(Number_talks>3)%>%ggplot(.,aes(reorder(speaker_name, Mean_talk_duration), Mean_talk_duration, fill=as.factor(Number_talks)))+geom_bar(stat = "identity")+coord_flip()+labs(x="","Mean Talk Duration")+theme_bw()+scale_fill_discrete("Number of Talks")
+
+ggobject
+```
+
+```{r}
+ggplotly(ggobject)
+```
+
+```{r}
+TED_speaker_metrics%>%filter(Number_talks>3)%>%plot_ly(x=~Mean_talk_duration,y=~reorder(speaker_name, Mean_talk_duration), color=~as.factor(Number_talks), type="bar")%>%layout(title="Speakers with more than 3 TED Talks", yaxis=list(title=""), xaxis=list(title="Mean Talk Duration"))
+```
+
+```{r}
+devtools::install_github("hrbrmstr/taucharts")
+library(taucharts)
+
+tmp= TED_speaker_metrics %>% filter(Number_talks>3)
+
+tauchart(tmp)%>%tau_bar("Mean_talk_duration","speaker_name",color="Number_talks",horizontal = "TRUE")%>% tau_legend()%>% tau_tooltip()
+```
+
+```{r}
+tmp= TED_speaker_metrics %>% filter(Number_talks>3)%>%arrange(-Mean_talk_duration)
+
+tmp$speaker_name=fct_inorder(tmp$speaker_name)
+
+tauchart(tmp)%>%tau_bar("Mean_talk_duration","speaker_name",color="Number_talks",horizontal = "TRUE")%>% tau_legend()%>% tau_tooltip()
+```
+
+```{r}
+head(TED$tags)
+
+TEDtags <- TED %>% select(tags)%>%separate(tags,c("tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10","tag11","tag12","tag13","tag14","tag15","tag16","tag17","tag18","tag19","tag20","tag21","tag22","tag23","tag24","tag25","tag26","tag27","tag28","tag29","tag30","tag31","tag32","tag33","tag34","tag35","tag36","tag37","tag38","tag39","tag40","tag41","tag42","tag43","tag44","tag45","tag46","tag47","tag48","tag49","tag50"), sep=",") %>% gather(tagnum, Tag, tag1:tag50)%>%
+  filter(Tag != "")
+head(TEDtags)
+
+TEDtags$Tag <- trimws(TEDtags$Tag)
+TEDtags$Tag <- tolower(TEDtags$Tag)
+
+tagcount <- TEDtags %>% group_by(Tag)%>%summarise(Tag_count=length(Tag))%>%arrange(-Tag_count)
+tagcount$Tag=fct_inorder(tagcount$Tag)
+tauchart(tagcount[1:20,])%>%tau_bar("Tag_count", "Tag", horizontal = "TRUE")%>% tau_legend()%>%tau_tooltip()
+
+
+```
+
